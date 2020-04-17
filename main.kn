@@ -1,0 +1,145 @@
+var wndMain: wnd@Wnd
+var drawMain: wnd@Draw
+const WIDTH: float :: 1600.0
+const HEIGHT: float :: 900.0
+func main()
+	do @wndMain :: wnd@makeWnd(null, %aspect, @WIDTH $ int, @HEIGHT $ int, "Title")
+	do @drawMain :: wnd@makeDraw(@wndMain, 0, 0, @WIDTH $ int, @HEIGHT $ int, %scale, %scale, false)
+	var perceptron: @Perceptron :: #@Perceptron
+	do perceptron.main()
+end func
+
+class Perceptron()
+	const train: int :: 1000
+	const input_size: int :: 1
+	const output_size: int :: 1
+	const b: float :: 1.0
+	const eta: float :: 0.01
+	var input: []float
+	var output: []float
+	var teacher: []float
+	;w[0][0]は切片b,w[1][0]は傾きa
+	var weight: [][]float
+	
+	var x_list: list<float>
+	var y_list: list<float>
+	var t_list: list<float>
+	
+	*func ctor()
+		do me.x_list :: #list<float>
+		do me.y_list :: #list<float>
+		do me.t_list :: #list<float>
+		do me.input :: #[input_size + 1]float
+		do me.input[0] :: 1.0
+		do me.output :: #[output_size]float
+		do me.teacher :: #[output_size]float
+		do me.weight :: #[input_size + 1, output_size]float
+		for o(0, output_size - 1)
+			do me.weight[0][o] :: b
+		end for
+	end func
+	
+	+func main()
+		
+		for(1, train)
+			var x: float :: lib@rnd(0, 10) $ float
+			do me.perceptron([x], 1)
+		end for
+		
+		for i(0, 1000)
+			var x: float :: i $ float
+			do me.perceptron([x], 0)
+			do me.x_list.add(x)
+			do me.y_list.add(me.output[0])
+			do me.t_list.add(me.teacher[0])
+		end for
+		
+		while(wnd@act())
+			do me.x_list.head()
+			do me.y_list.head()
+			do me.t_list.head()
+			while(!me.x_list.term())
+				var x: float :: me.x_list.get()
+				var y: float :: me.y_list.get()
+				var t: float :: me.t_list.get()
+				do me.graph(x, t, 5.0, 0xFFFFFF00)
+				do me.graph(x, y, 5.0, 0xFFFF0000)
+				
+				do me.x_list.next()
+				do me.y_list.next()
+				do me.t_list.next()
+			end while
+			do draw@render(60)
+		end while
+		
+		do me.show()
+	end func
+	
+	func perceptron(input: []float, trainF: int)
+		do me.input[1] :: input[0]
+		;ax+b
+		;a=3,b=1
+		do me.teacher[0] :: -0.3 * input[0] + 1.0
+		;入力層から出力層へ
+		for o(0, output_size - 1)
+			var out: float :: 0.0
+			for i(0, input_size)
+				do out :+ me.input[i] * me.weight[i][o]
+			end for
+			do me.output[o] :: out
+		end for
+		
+		if(trainF = 1)
+			;重みとバイアスの更新
+			var dE: float
+			do dE :: me.d_MSE(me.output, me.teacher)
+			for o(0, output_size - 1)
+				for i(0, input_size)
+					var dw: float :: -eta * dE * me.input[i]
+					do me.weight[i][o] :+ dw
+				end for
+			end for
+		end if
+	end func
+	
+	+func d_MSE(out: []float, tea: []float): float
+		var sum: float
+		for o(0, output_size - 1)
+			do sum :+ (out[o] - tea[o])
+		end for
+		ret sum / output_size $ float
+	end func
+	
+	+func show()
+		;入力
+		for i(0, input_size)
+			do dbg@print("in[\{i}]:\{me.input[i]}\n")
+		end for
+		;重み
+		for i(0, input_size)
+			for o(0, output_size - 1)
+				do dbg@print("w[\{i}][\{o}]:\{me.weight[i][o]}\n")
+			end for
+		end for
+		;教師
+		for o(0, output_size - 1)
+			do dbg@print("t[\{o}]:\{me.teacher[o]}\n")
+		end for
+		;出力
+		for o(0, output_size - 1)
+			do dbg@print("out[\{o}]:\{me.output[o]}\n")
+		end for
+		
+	end func
+	
+	+func graph(x: float, y: float, size: float, color: int)
+		var x0: float :: @WIDTH / 3.0
+		var y0: float :: @HEIGHT / 3.0 * 2.0
+		do draw@line(0.0, y0, @WIDTH, y0, 0xFFFFFFFF)
+		do draw@line(x0, 0.0, x0, @HEIGHT, 0xFFFFFFFF)
+		
+		do draw2d@circle(x + x0, y + y0, size, size, color)
+		
+	end func
+	
+end class
